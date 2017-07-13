@@ -168,6 +168,43 @@ Type* dfsAst(Ast *ast, vector<Variable*>globals) {
     exit(-1);
 }
 
+int test_id() {
+    Type INT2INT_t;
+    INT2INT_t.type = FUNCTION;
+    INT2INT_t.from = &INT_t;
+    INT2INT_t.to = &INT_t;
+
+    /*** Making Variables ***/
+    Variable x, const1, add;
+    x.name = "x";
+
+    /*** Built ASTs ***/
+    Ast x_ast, lambda_x_ast, ast;
+    x_ast.type = VARIABLE_AST;
+    lambda_x_ast.type = LAMBDA_PRIM_AST;
+    x_ast.val = &x;
+    Lambda lambda;
+    Variable x_g;
+    x_g.name = "x";
+    x_g.type = &INT_t;
+    lambda.arg = &x_g;
+    lambda_x_ast.lambda = &lambda;
+    ast.type = LAMBDA_AST;
+    ast.left = &lambda_x_ast;
+    ast.right = &x_ast;
+
+    Type *target = &INT2INT_t;
+
+    // make_lambda should have int->int
+
+    vector<Variable*> globals;
+    Type *type = dfsAst(&ast, globals);
+    // print_type(type);
+
+    return typecmp(type, target);
+}
+
+
 int verify(char* s) {
     int l = strlen(s);
 

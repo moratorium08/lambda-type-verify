@@ -1,6 +1,7 @@
 #include <string>
 using namespace std;
 int verify(char * s);
+int test_id();
 
 enum {
     FUNCTION,
