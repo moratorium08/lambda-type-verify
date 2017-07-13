@@ -5,7 +5,6 @@
 
 using namespace std;
 
-//typedef string Type;
 
 Type * make_primitive(char * type_name) {
     Type *type = (Type*)malloc(sizeof(Type));
@@ -13,6 +12,7 @@ Type * make_primitive(char * type_name) {
     type->type_name = type_name;
     return type;
 }
+
 Type * make_func_type(Type *from, Type *to) {
     Type *ret = (Type*)malloc(sizeof(Type));
     ret->type = FUNCTION;
@@ -20,13 +20,6 @@ Type * make_func_type(Type *from, Type *to) {
     ret->to = to;
     return ret;
 }
-char * primitive_names[] = {"int", "string", "float", "bool", "char", "unit"};
-Type INT_t = {VARIABLE, primitive_names[0]};
-Type STRING_t = {VARIABLE, primitive_names[1]};
-Type FLOAT_t =  {VARIABLE, primitive_names[2]};
-Type BOOL_t  = {VARIABLE, primitive_names[3]};
-Type CHAR_t  = {VARIABLE, primitive_names[4]};
-Type UNIT_t  = {VARIABLE, primitive_names[5]};
 
 /* lambda expression rule
  *
@@ -41,6 +34,7 @@ Type UNIT_t  = {VARIABLE, primitive_names[5]};
  * -> ok
  */
 
+
 Type * get_type (Variable *val, vector<Variable*> variables) {
     for(auto itr = variables.begin(); itr != variables.end(); ++itr) {
         if(strcmp((*itr)->name, val->name) == 0) {
@@ -49,6 +43,7 @@ Type * get_type (Variable *val, vector<Variable*> variables) {
     }
     return NULL;
 }
+
 
 int typecmp(Type *a, Type *b) {
     if (a->type == VARIABLE && b->type == VARIABLE
@@ -69,6 +64,7 @@ int typecmp(Type *a, Type *b) {
     }
 }
 
+
 void _print_type(Type*t){
     if (t->type == VARIABLE) {
         printf("%s", t->type_name);
@@ -86,10 +82,13 @@ void _print_type(Type*t){
         printf(")");
     }
 }
+
+
 void print_type(Type *t) {
     _print_type(t);
     printf("\n");
 }
+
 
 Type * get_first_arg(Type *func) {
     if (func->type != FUNCTION) {
@@ -97,6 +96,7 @@ Type * get_first_arg(Type *func) {
     }
     return get_first_arg(func->from);
 }
+
 
 Type * _apply_type(Type *left_t, Type *right_t) {
     if (left_t->type != FUNCTION) {
@@ -112,6 +112,7 @@ Type * _apply_type(Type *left_t, Type *right_t) {
     return make_func_type(_apply_type(left_t->from, right_t), left_t->to);
 }
 
+
 Type * apply_type(Type *left_t, Type *right_t) {
     if (left_t->type != FUNCTION) {
         printf("You cannot apply variable to variable\n");
@@ -119,6 +120,7 @@ Type * apply_type(Type *left_t, Type *right_t) {
     }
     return _apply_type(left_t, right_t);
 }
+
 
 Type * handle_lambda(Ast *ast, vector<Variable*> *globals) {
     if (ast->type != LAMBDA_PRIM_AST) {
@@ -168,129 +170,93 @@ Type* dfsAst(Ast *ast, vector<Variable*>globals) {
     exit(-1);
 }
 
-int test_id() {
-    Type INT2INT_t;
-    INT2INT_t.type = FUNCTION;
-    INT2INT_t.from = &INT_t;
-    INT2INT_t.to = &INT_t;
-
-    /*** Making Variables ***/
-    Variable x, const1, add;
-    x.name = "x";
-
-    /*** Built ASTs ***/
-    Ast x_ast, lambda_x_ast, ast;
-    x_ast.type = VARIABLE_AST;
-    lambda_x_ast.type = LAMBDA_PRIM_AST;
-    x_ast.val = &x;
-    Lambda lambda;
-    Variable x_g;
-    x_g.name = "x";
-    x_g.type = &INT_t;
-    lambda.arg = &x_g;
-    lambda_x_ast.lambda = &lambda;
-    ast.type = LAMBDA_AST;
-    ast.left = &lambda_x_ast;
-    ast.right = &x_ast;
-
-    Type *target = &INT2INT_t;
-
-    // make_lambda should have int->int
-
-    vector<Variable*> globals;
-    Type *type = dfsAst(&ast, globals);
-    // print_type(type);
-
-    return typecmp(type, target);
+Variable * make_variable_by_name(char *s) {
+    Variable *x = (Variable*)malloc(sizeof(Variable));
+    x->name = s;
+    return x;
 }
 
+Variable *make_variable(char *name, Type *type) {
+    Variable *var = make_variable_by_name(name);
+    var->type = type;
+    return var;
+}
+
+Ast *make_var_ast(Variable *v){
+    Ast *ast = (Ast *)malloc(sizeof(Ast));
+    ast->type = VARIABLE_AST;
+    ast->val = v;
+    return ast;
+}
+
+Lambda *make_lambda(Variable *var) {
+    Lambda *lambda = (Lambda *)malloc(sizeof(Lambda));
+    lambda->arg = var;
+    return lambda;
+}
+
+Ast *make_lambda_prim_ast(char *var_name, Type *var_type) {
+    Variable *var = make_variable(var_name, var_type);
+    Lambda *lambda = make_lambda(var);
+    Ast * ast = (Ast *)malloc(sizeof(Ast));
+    ast->type = LAMBDA_PRIM_AST;
+    ast->lambda = lambda;
+    return ast;
+}
+
+Ast *make_apply_ast(Ast *left, Ast *right) {
+    Ast *ast = (Ast *)malloc(sizeof(Ast));
+    ast->type = APPLY_AST;
+    ast->left = left;
+    ast->right = right;
+    return ast;
+}
+
+Ast *make_lambda_ast(Ast *lambda, Ast *right) {
+    if (lambda->type != LAMBDA_PRIM_AST) {
+        printf("illegal lambda\n");
+        exit(-1);
+    }
+    Ast *ast = (Ast *)malloc(sizeof(Ast));
+    ast->type = LAMBDA_AST;
+    ast->left = lambda;
+    ast->right = right;
+    return ast;
+}
 
 int verify(char* s) {
     int l = strlen(s);
 
     /*** Define Types ***/
-    Type INT2INT_t;
-    INT2INT_t.type = FUNCTION;
-    INT2INT_t.from = &INT_t;
-    INT2INT_t.to = &INT_t;
-
-    Type INT2INT2INT_t;
-    INT2INT2INT_t.type = FUNCTION;
-    INT2INT2INT_t.from = &INT2INT_t;
-    INT2INT2INT_t.to = &INT_t;
+    Type *INT2INT_t = make_func_type(&INT_t, &INT_t);;
+    Type *INT2INT2INT_t = make_func_type(INT2INT_t, &INT_t);
 
     /*** Making Variables ***/
-    Variable x, const1, add;
-    x.name = "x";
-    const1.name = "!1"; //Assume that there is no variable starts with !
-    add.name = "+";
+    Variable *x = make_variable_by_name("x");
+    Variable *const1 = make_variable_by_name("!1");
+    Variable *add = make_variable_by_name("+");
 
     /*** Built ASTs ***/
-    /*
-    Ast x_ast, lambda_x_ast, ast;
-    x_ast.type = VARIABLE_AST;
-    lambda_x_ast.type = LAMBDA_PRIM_AST;
-    x_ast.val = &x;
-    Lambda lambda;
-    Variable x_g;
-    x_g.name = "x";
-    x_g.type = &INT_t;
-    lambda.arg = &x_g;
-    lambda_x_ast.lambda = &lambda;
-    ast.type = LAMBDA_AST;
-    ast.left = &lambda_x_ast;
-    ast.right = &x_ast;
-    */
+    Ast *const1_ast = make_var_ast(const1);
+    Ast *x_ast = make_var_ast(x);
+    Ast *add_ast = make_var_ast(add);
+    Ast *lambda_x_ast = make_lambda_prim_ast("x", &INT_t);
+    Ast *applyx = make_apply_ast(add_ast, x_ast);
+    Ast *apply1 = make_apply_ast(applyx, const1_ast);
+    Ast *lambda_x = make_lambda_ast(lambda_x_ast, apply1);
 
-    Ast const1_ast, x_ast, add_ast, lambda_x_ast;
-
-    const1_ast.type = VARIABLE_AST;
-    x_ast.type = VARIABLE_AST;
-    add_ast.type = VARIABLE_AST;
-    lambda_x_ast.type = LAMBDA_PRIM_AST;
-    const1_ast.val = &const1;
-    x_ast.val = &x;
-    add_ast.val = &add;
-
-    Lambda lambda;
-    Variable x_g;
-    x_g.name = "x";
-    x_g.type = &INT_t;
-    lambda.arg = &x_g;
-    lambda_x_ast.lambda = &lambda;
-
-    Ast applyx, apply1, make_lambda;
-    applyx.type = APPLY_AST;
-    applyx.left = &add_ast;
-    applyx.right= &x_ast;
-
-    apply1.type = APPLY_AST;
-    apply1.left = &applyx;
-    apply1.right = &const1_ast;
-
-    make_lambda.type = LAMBDA_AST;
-    make_lambda.left = &lambda_x_ast;
-    make_lambda.right = &apply1;
-
-    Ast ast; //target ast
-    ast = make_lambda;
-
-    Type *target = &INT2INT_t;
-
-    // make_lambda should have int->int
+    Ast *ast = lambda_x;  // target ast
+    Type *target = INT2INT_t;  // make_lambda should have int->int
 
     /** Global Variable Settings **/
-    Variable const1_g, add_g;
-    const1_g.name = "!1";
-    const1_g.type = &INT_t;
-    add_g.name = "+";
-    add_g.type = &INT2INT2INT_t;
-
+    Variable *const1_g = make_variable("!1", &INT_t);
+    Variable *add_g= make_variable("+", INT2INT2INT_t);
     vector<Variable*> globals;
-    globals.push_back(&add_g);
-    globals.push_back(&const1_g);
-    Type *type = dfsAst(&ast, globals);
-    // print_type(type);
+    globals.push_back(add_g);
+    globals.push_back(const1_g);
+
+    Type *type = dfsAst(ast, globals);
+    print_type(type);
 
     return typecmp(type, target);
 }

@@ -1,7 +1,5 @@
 #include <string>
 using namespace std;
-int verify(char * s);
-int test_id();
 
 enum {
     FUNCTION,
@@ -50,3 +48,30 @@ typedef struct Ast {
         };
     };
 } Ast;
+
+// Ast related functions
+Variable * make_variable_by_name(char *s);
+Variable *make_variable(char *name, Type *type);
+Ast *make_var_ast(Variable *v);
+Lambda *make_lambda(Variable *var);
+Ast *make_lambda_prim_ast(char *var_name, Type *var_type);
+Ast *make_apply_ast(Ast *left, Ast *right);
+Ast *make_lambda_ast(Ast *lambda, Ast *right);
+
+// Type related functions
+Type * apply_type(Type *left_t, Type *right_t);
+void print_type(Type *t);
+int typecmp(Type *a, Type *b);
+Type * make_func_type(Type *from, Type *to);
+Type * make_primitive(char * type_name);
+
+int verify(char * s);
+
+//typedef string Type;
+static char * primitive_names[] = {"int", "string", "float", "bool", "char", "unit"};
+static Type INT_t = {VARIABLE, primitive_names[0]};
+static Type STRING_t = {VARIABLE, primitive_names[1]};
+static Type FLOAT_t =  {VARIABLE, primitive_names[2]};
+static Type BOOL_t  = {VARIABLE, primitive_names[3]};
+static Type CHAR_t  = {VARIABLE, primitive_names[4]};
+static Type UNIT_t  = {VARIABLE, primitive_names[5]};
