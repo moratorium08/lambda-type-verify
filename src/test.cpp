@@ -90,6 +90,36 @@ int test_int2int() {
     return typecmp(type, target);
 }
 
+int test_int2int_2int2int() {
+    Type *Int2Int_t = make_func_type(&INT_t, &INT_t);;
+    Type *Int2Int_fn_t = make_type();
+    Int2Int_fn_t->type = TYPE;
+    Int2Int_fn_t->type_fn = Int2Int_t;
+    Type *Int2Int_fn_2_Int_t = make_func_type(Int2Int_fn_t, Int2Int_t);
+
+    Variable *x = make_variable_by_name("x");
+    Variable *f= make_variable_by_name("f");
+
+    Ast *f1_ast = make_var_ast(f);
+    Ast *x_ast = make_var_ast(x);
+    Ast *f2_ast = make_var_ast(f);
+
+    Ast *lambda_x_ast = make_lambda_prim_ast("x", &INT_t);
+    Ast *lambda_f_ast = make_lambda_prim_ast("f", Int2Int_fn_t);
+
+    Ast *applyx = make_apply_ast(f1_ast, x_ast);
+    Ast *applyfx = make_apply_ast(f2_ast, applyx);
+    Ast *lambda_x = make_lambda_ast(lambda_x_ast, applyfx);
+    Ast *lambda_f = make_lambda_ast(lambda_f_ast, lambda_x);
+
+    Ast *ast = lambda_f;  // target ast
+    Type *target = Int2Int_fn_2_Int_t;  // make_lambda should have int->int
+
+    vector<Variable*> globals;
+    Type *type = dfsAst(ast, globals);
+    return typecmp(type, target);
+}
+
 void run_test(string describe, int flag) {
     cout << describe << "...";
     if (flag) {
@@ -108,5 +138,8 @@ int main(int argc, char * argv[])
 
     flag = test_int2int();
     run_test("verify lambda x:int. x + 1", flag);
+
+    flag = test_int2int_2int2int();
+    run_test("verify lambda f:int->int.lambda x:int.f(f(x))", flag);
     return 0;
 }

@@ -114,6 +114,9 @@ Type * _apply_type(Type *left_t, Type *right_t) {
 
 
 Type * apply_type(Type *left_t, Type *right_t) {
+    if (left_t->type == TYPE) {
+        return apply_type(left_t->type_fn, right_t);
+    }
     if (left_t->type != FUNCTION) {
         printf("You cannot apply variable to variable\n");
         exit(-1);
@@ -170,8 +173,16 @@ Type* dfsAst(Ast *ast, vector<Variable*>globals) {
     exit(-1);
 }
 
+Variable *make_var() {
+    return (Variable*)malloc(sizeof(Variable));
+}
+
+Type *make_type() {
+    return (Type*)malloc(sizeof(Type));
+}
+
 Variable * make_variable_by_name(char *s) {
-    Variable *x = (Variable*)malloc(sizeof(Variable));
+    Variable *x = make_var();
     x->name = s;
     return x;
 }
@@ -228,32 +239,34 @@ int verify(char* s) {
     int l = strlen(s);
 
     /*** Define Types ***/
-    Type *INT2INT_t = make_func_type(&INT_t, &INT_t);;
-    Type *INT2INT2INT_t = make_func_type(INT2INT_t, &INT_t);
+    Type *Int2Int_t = make_func_type(&INT_t, &INT_t);;
+    Type *Int2Int_fn_t = make_type();
+    Int2Int_fn_t->type = TYPE;
+    Int2Int_fn_t->type_fn = Int2Int_t;
+    Type *Int2Int_fn_2_Int_t = make_func_type(Int2Int_fn_t, Int2Int_t);
 
     /*** Making Variables ***/
     Variable *x = make_variable_by_name("x");
-    Variable *const1 = make_variable_by_name("!1");
-    Variable *add = make_variable_by_name("+");
+    Variable *f= make_variable_by_name("f");
 
     /*** Built ASTs ***/
-    Ast *const1_ast = make_var_ast(const1);
+    Ast *f1_ast = make_var_ast(f);
     Ast *x_ast = make_var_ast(x);
-    Ast *add_ast = make_var_ast(add);
-    Ast *lambda_x_ast = make_lambda_prim_ast("x", &INT_t);
-    Ast *applyx = make_apply_ast(add_ast, x_ast);
-    Ast *apply1 = make_apply_ast(applyx, const1_ast);
-    Ast *lambda_x = make_lambda_ast(lambda_x_ast, apply1);
+    Ast *f2_ast = make_var_ast(f);
 
-    Ast *ast = lambda_x;  // target ast
-    Type *target = INT2INT_t;  // make_lambda should have int->int
+    Ast *lambda_x_ast = make_lambda_prim_ast("x", &INT_t);
+    Ast *lambda_f_ast = make_lambda_prim_ast("f", Int2Int_fn_t);
+
+    Ast *applyx = make_apply_ast(f1_ast, x_ast);
+    Ast *applyfx = make_apply_ast(f2_ast, applyx);
+    Ast *lambda_x = make_lambda_ast(lambda_x_ast, applyfx);
+    Ast *lambda_f = make_lambda_ast(lambda_f_ast, lambda_x);
+
+    Ast *ast = lambda_f;  // target ast
+    Type *target = Int2Int_fn_2_Int_t;  // make_lambda should have int->int
 
     /** Global Variable Settings **/
-    Variable *const1_g = make_variable("!1", &INT_t);
-    Variable *add_g= make_variable("+", INT2INT2INT_t);
     vector<Variable*> globals;
-    globals.push_back(add_g);
-    globals.push_back(const1_g);
 
     Type *type = dfsAst(ast, globals);
     print_type(type);

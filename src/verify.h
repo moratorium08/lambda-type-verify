@@ -59,6 +59,7 @@ Ast *make_apply_ast(Ast *left, Ast *right);
 Ast *make_lambda_ast(Ast *lambda, Ast *right);
 
 // Type related functions
+Type *make_type();
 Type * apply_type(Type *left_t, Type *right_t);
 void print_type(Type *t);
 int typecmp(Type *a, Type *b);
