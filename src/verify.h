@@ -4,13 +4,15 @@ int verify(char * s);
 
 enum {
     FUNCTION,
-    VARIABLE
+    VARIABLE,
+    TYPE
 };
 
 typedef struct Type {
     int type;
     union {
         char* type_name;
+        Type* type_fn;
         struct {
             Type *from;
             Type *to;

@@ -13,6 +13,13 @@ Type * make_primitive(char * type_name) {
     type->type_name = type_name;
     return type;
 }
+Type * make_func_type(Type *from, Type *to) {
+    Type *ret = (Type*)malloc(sizeof(Type));
+    ret->type = FUNCTION;
+    ret->from = from;
+    ret->to = to;
+    return ret;
+}
 char * primitive_names[] = {"int", "string", "float", "bool", "char", "unit"};
 Type INT_t = {VARIABLE, primitive_names[0]};
 Type STRING_t = {VARIABLE, primitive_names[1]};
@@ -54,6 +61,9 @@ int typecmp(Type *a, Type *b) {
         int to_flag = typecmp(a->to, b->to);
         return from_flag & to_flag;
     }
+    else if (a->type == TYPE && b->type == TYPE) {
+        return typecmp(a->type_fn, b->type_fn);
+    }
     else {
         return 0;
     }
@@ -63,11 +73,16 @@ void _print_type(Type*t){
     if (t->type == VARIABLE) {
         printf("%s", t->type_name);
     }
-    else {
-        printf("(");
+    else if(t->type == FUNCTION) {
+        //printf("(");
         _print_type(t->from);
-        printf(")->(");
+        //printf(")->(");
+        printf(" -> ");
         _print_type(t->to);
+        //printf(")");
+    } else {
+        printf("(");
+        _print_type(t->type_fn);
         printf(")");
     }
 }
@@ -76,20 +91,33 @@ void print_type(Type *t) {
     printf("\n");
 }
 
+Type * get_first_arg(Type *func) {
+    if (func->type != FUNCTION) {
+        return func;
+    }
+    return get_first_arg(func->from);
+}
+
+Type * _apply_type(Type *left_t, Type *right_t) {
+    if (left_t->type != FUNCTION) {
+        printf("There is a mismatch of applying variables to functions\n");
+        exit(-1);
+    }
+    int flag = typecmp(left_t->from, right_t);
+    if (flag) {
+        Type *ret = left_t->to;
+        //free(left_t);
+        return ret;
+    }
+    return make_func_type(_apply_type(left_t->from, right_t), left_t->to);
+}
+
 Type * apply_type(Type *left_t, Type *right_t) {
     if (left_t->type != FUNCTION) {
         printf("You cannot apply variable to variable\n");
         exit(-1);
     }
-    int flag = typecmp(left_t->from, right_t);
-    if (flag) {
-        return left_t->to;
-    }
-
-    printf("There is a mismatch of applying variables to functions\n");
-    print_type(left_t);
-    print_type(right_t);
-    exit(-1);
+    return _apply_type(left_t, right_t);
 }
 
 Type * handle_lambda(Ast *ast, vector<Variable*> *globals) {
@@ -104,13 +132,6 @@ Type * handle_lambda(Ast *ast, vector<Variable*> *globals) {
     return ret;
 }
 
-Type * make_func_type(Type *from, Type *to) {
-    Type *ret = (Type*)malloc(sizeof(Type));
-    ret->type = FUNCTION;
-    ret->from = from;
-    ret->to = to;
-    return ret;
-}
 
 Type* dfsAst(Ast *ast, vector<Variable*>globals) {
     if (ast->type == VARIABLE_AST) {
@@ -168,6 +189,7 @@ int verify(char* s) {
     add.name = "+";
 
     /*** Built ASTs ***/
+    /*
     Ast x_ast, lambda_x_ast, ast;
     x_ast.type = VARIABLE_AST;
     lambda_x_ast.type = LAMBDA_PRIM_AST;
@@ -181,8 +203,8 @@ int verify(char* s) {
     ast.type = LAMBDA_AST;
     ast.left = &lambda_x_ast;
     ast.right = &x_ast;
+    */
 
-    /*
     Ast const1_ast, x_ast, add_ast, lambda_x_ast;
 
     const1_ast.type = VARIABLE_AST;
@@ -214,13 +236,15 @@ int verify(char* s) {
     make_lambda.right = &apply1;
 
     Ast ast; //target ast
-    ast = make_lambda;*/
+    ast = make_lambda;
+
+    Type *target = &INT2INT_t;
 
     // make_lambda should have int->int
 
     /** Global Variable Settings **/
     Variable const1_g, add_g;
-    const1_g.name = "const1";
+    const1_g.name = "!1";
     const1_g.type = &INT_t;
     add_g.name = "+";
     add_g.type = &INT2INT2INT_t;
@@ -229,7 +253,7 @@ int verify(char* s) {
     globals.push_back(&add_g);
     globals.push_back(&const1_g);
     Type *type = dfsAst(&ast, globals);
-    print_type(type);
+    // print_type(type);
 
-    return 0;
+    return typecmp(type, target);
 }
