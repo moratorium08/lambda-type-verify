@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
+#include <regex.h>
 #include "verify.h"
 
 using namespace std;
@@ -65,6 +66,11 @@ int typecmp(Type *a, Type *b) {
 }
 
 
+void _print_spaces(int space) {
+    for (int i = 0 ; i < space; i++) {
+        printf(" ");
+    }
+}
 void _print_type(Type*t){
     if (t->type == VARIABLE) {
         printf("%s", t->type_name);
@@ -87,6 +93,37 @@ void _print_type(Type*t){
 void print_type(Type *t) {
     _print_type(t);
     printf("\n");
+}
+
+void print_var(Variable *var) {
+    printf("%s:", var->name);
+    print_type(var->type);
+}
+void _print_ast(Ast *ast, int space) {
+    switch(ast->type) {
+        case VARIABLE_AST:
+            _print_spaces(space);
+            printf("[var]%s\n", ast->val->name);
+            break;
+        case APPLY_AST:
+            _print_spaces(space);
+            _print_ast(ast->left, 2);
+            _print_ast(ast->right, space + 2);
+            break;
+        case LAMBDA_AST:
+            _print_spaces(space);
+            _print_ast(ast->left, 2);
+            _print_ast(ast->right, space + 2);
+            break;
+        case LAMBDA_PRIM_AST:
+            _print_spaces(space);
+            printf("lambda %s:", ast->lambda->arg->name);
+            print_type(ast->lambda->arg->type);
+            break;
+    }
+}
+void print_ast(Ast *ast) {
+    _print_ast(ast, 0);
 }
 
 
@@ -133,7 +170,6 @@ Type * handle_lambda(Ast *ast, vector<Variable*> *globals) {
     Lambda *lambda = ast->lambda;
     Type *ret = lambda->arg->type;
     globals->push_back(lambda->arg);
-
     return ret;
 }
 
@@ -151,6 +187,9 @@ Type* dfsAst(Ast *ast, vector<Variable*>globals) {
             }
         }
         else {
+            printf("hel\n");
+            printf("p%lx\n", (unsigned long)(ast->val->type));
+            print_type(ast->val->type);
             return ast->val->type;
         }
     }
@@ -174,11 +213,15 @@ Type* dfsAst(Ast *ast, vector<Variable*>globals) {
 }
 
 Variable *make_var() {
-    return (Variable*)malloc(sizeof(Variable));
+    Variable * v = (Variable*)malloc(sizeof(Variable));
+    memset(v, 0, sizeof(Variable));
+    return v;
 }
 
 Type *make_type() {
-    return (Type*)malloc(sizeof(Type));
+    Type *t =  (Type*)malloc(sizeof(Type));
+    memset(t, 0, sizeof(Type));
+    return t;
 }
 
 Variable * make_variable_by_name(char *s) {
@@ -195,6 +238,7 @@ Variable *make_variable(char *name, Type *type) {
 
 Ast *make_var_ast(Variable *v){
     Ast *ast = (Ast *)malloc(sizeof(Ast));
+    memset(ast, 0, sizeof(Ast));
     ast->type = VARIABLE_AST;
     ast->val = v;
     return ast;
@@ -202,6 +246,7 @@ Ast *make_var_ast(Variable *v){
 
 Lambda *make_lambda(Variable *var) {
     Lambda *lambda = (Lambda *)malloc(sizeof(Lambda));
+    memset(lambda, 0, sizeof(Lambda));
     lambda->arg = var;
     return lambda;
 }
@@ -210,6 +255,7 @@ Ast *make_lambda_prim_ast(char *var_name, Type *var_type) {
     Variable *var = make_variable(var_name, var_type);
     Lambda *lambda = make_lambda(var);
     Ast * ast = (Ast *)malloc(sizeof(Ast));
+    memset(ast, 0, sizeof(Ast));
     ast->type = LAMBDA_PRIM_AST;
     ast->lambda = lambda;
     return ast;
@@ -217,6 +263,7 @@ Ast *make_lambda_prim_ast(char *var_name, Type *var_type) {
 
 Ast *make_apply_ast(Ast *left, Ast *right) {
     Ast *ast = (Ast *)malloc(sizeof(Ast));
+    memset(ast, 0, sizeof(Ast));
     ast->type = APPLY_AST;
     ast->left = left;
     ast->right = right;
@@ -235,8 +282,90 @@ Ast *make_lambda_ast(Ast *lambda, Ast *right) {
     return ast;
 }
 
+// This parser only accepts the expression starts with lambda.
+// [Lambda Expressions]
+// lambda [name]:[type].(expressions)
+// [Functional Apprecations]
+// [func name](expressions)
+//
+// The rules of this language are only the above rules.
+//
+
+char *create_substr(char *s, int st, int ed) {
+    char *ret = (char *)malloc(ed - st + 1);
+    for (int i = st; i < ed; i++) {
+        ret[i - st] = s[i];
+    }
+    ret[ed - st] = 0;
+    return ret;
+}
+
+Ast *str2ast(char *s) {
+    // lambda x:var matching
+    static const char lambda_regex[]
+        = "^lambda +([a-zA-Z][a-zA-Z0-9]*):([a-zA-Z][a-zA-Z0-9]*)\\.(.+)$";
+    regex_t regexBufferLambda;
+    if(regcomp(&regexBufferLambda, lambda_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
+    {
+        printf("regex error..!\n");
+        exit(-1);
+    }
+    regmatch_t pm[4];
+    if( regexec( &regexBufferLambda, s, 4, pm, 0 ) == 0 )
+    {
+        // var name
+        int st, ed;
+        char *name = create_substr(s, pm[1].rm_so, pm[1].rm_eo);
+        char *type_name = create_substr(s, pm[2].rm_so, pm[2].rm_eo);
+
+        char *exp = create_substr(s, pm[3].rm_so, pm[3].rm_eo);
+        Ast *right = str2ast(exp);
+        free(exp);
+
+        Type *t = make_type();
+        t->type = VARIABLE;
+        t->type_name = type_name;
+
+        Ast *left = make_lambda_prim_ast(name, t);
+        Ast *ret = make_lambda_ast(left, right);
+        return ret;
+    }
+
+    static const char apply_regex[] = "^([a-zA-Z][a-zA-Z0-9]*)\\((.*)\\)$";
+    regex_t regexBufferApply;
+    if(regcomp(&regexBufferApply, lambda_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
+    {
+        printf("regex error..!\n");
+        exit(-1);
+    }
+    regmatch_t applypm[4];
+    if(regexec(&regexBufferApply, s, 4, applypm, 0) == 0)
+    {
+        // toridashi syori
+        printf("[!]%s\n", s);
+    }
+
+    static const char var_regex[] = "[A-Za-z][A-Za-z]*";
+    regex_t varbuf;
+    if (regcomp(&varbuf, var_regex, REG_EXTENDED | REG_NEWLINE) != 0) {
+        printf("regex error...!\n");
+        exit(-1);
+    }
+    regmatch_t varpm[1];
+    if (regexec(&varbuf, s, 1, varpm, 0) == 0) {
+        char *name = create_substr(s, varpm[0].rm_so, varpm[0].rm_eo);
+        Variable *x = make_variable_by_name(name);
+        Ast *ast = make_var_ast(x);
+        return ast;
+    }
+    printf("Illegal Grammar\n");
+    exit(-1);
+}
+
 int verify(char* s) {
     int l = strlen(s);
+    // TODO: Semantic Parsing
+    // TODO: Type Inference
 
     /*** Define Types ***/
     Type *Int2Int_t = make_func_type(&INT_t, &INT_t);;
@@ -264,12 +393,15 @@ int verify(char* s) {
 
     Ast *ast = lambda_f;  // target ast
     Type *target = Int2Int_fn_2_Int_t;  // make_lambda should have int->int
+    print_ast(ast);
 
     /** Global Variable Settings **/
     vector<Variable*> globals;
 
     Type *type = dfsAst(ast, globals);
     print_type(type);
+    int result = typecmp(type, target);
+    // TODO: Free
 
-    return typecmp(type, target);
+    return result;
 }

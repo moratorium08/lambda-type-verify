@@ -67,12 +67,13 @@ Type * make_func_type(Type *from, Type *to);
 Type * make_primitive(char * type_name);
 
 int verify(char * s);
+Ast * str2ast(char *s);
 
 //typedef string Type;
 static char * primitive_names[] = {"int", "string", "float", "bool", "char", "unit"};
-static Type INT_t = {VARIABLE, primitive_names[0]};
-static Type STRING_t = {VARIABLE, primitive_names[1]};
-static Type FLOAT_t =  {VARIABLE, primitive_names[2]};
-static Type BOOL_t  = {VARIABLE, primitive_names[3]};
-static Type CHAR_t  = {VARIABLE, primitive_names[4]};
-static Type UNIT_t  = {VARIABLE, primitive_names[5]};
+static Type INT_t    = {VARIABLE,  {primitive_names[0]}};
+static Type STRING_t = {VARIABLE,  {primitive_names[1]}};
+static Type FLOAT_t  = {VARIABLE,  {primitive_names[2]}};
+static Type BOOL_t   = {VARIABLE,  {primitive_names[3]}};
+static Type CHAR_t   = {VARIABLE,  {primitive_names[4]}};
+static Type UNIT_t   = {VARIABLE,  {primitive_names[5]}};

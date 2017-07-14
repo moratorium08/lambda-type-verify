@@ -120,6 +120,14 @@ int test_int2int_2int2int() {
     return typecmp(type, target);
 }
 
+int test_id_from_parser() {
+    vector<Variable *> globals;
+    Ast *ast = str2ast("lambda y:int.y");
+    Type *type = dfsAst(ast, globals);
+    Type *Int2Int_t = make_func_type(&INT_t, &INT_t);;
+    return typecmp(Int2Int_t, type);
+}
+
 void run_test(string describe, int flag) {
     cout << describe << "...";
     if (flag) {
@@ -141,5 +149,8 @@ int main(int argc, char * argv[])
 
     flag = test_int2int_2int2int();
     run_test("verify lambda f:int->int.lambda x:int.f(f(x))", flag);
+
+    flag = test_id_from_parser();
+    run_test("verify id from parser", flag);
     return 0;
 }
