@@ -65,12 +65,13 @@ void print_type(Type *t);
 int typecmp(Type *a, Type *b);
 Type * make_func_type(Type *from, Type *to);
 Type * make_primitive(char * type_name);
+Type * make_type_from_str(char *s);
 
 int verify(char * s);
 Ast * str2ast(char *s);
 
 //typedef string Type;
-static char * primitive_names[] = {"int", "string", "float", "bool", "char", "unit"};
+static char *primitive_names[] = {"int", "string", "float", "bool", "char", "unit"};
 static Type INT_t    = {VARIABLE,  {primitive_names[0]}};
 static Type STRING_t = {VARIABLE,  {primitive_names[1]}};
 static Type FLOAT_t  = {VARIABLE,  {primitive_names[2]}};

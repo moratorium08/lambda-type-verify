@@ -2,10 +2,16 @@
 #include <string>
 #include <vector>
 #include <regex.h>
+#include <stdarg.h>
 #include "verify.h"
 
 using namespace std;
 
+
+void panic(char *s) {
+    printf("%s", s);
+    exit(-1);
+}
 
 Type * make_primitive(char * type_name) {
     Type *type = (Type*)malloc(sizeof(Type));
@@ -45,24 +51,52 @@ Type * get_type (Variable *val, vector<Variable*> variables) {
     return NULL;
 }
 
+void strscpy(char *buf, int count, ...) {
+    va_list ap;
+    va_start(ap, count);
+    int idx = 0;
+    for (int i = 0; i < count; i++) {
+        char *tmp = va_arg(ap, char*);
+        for (int j = 0; j < strlen(tmp); j++) {
+            buf[idx++] = tmp[j];
+        }
+    }
+}
+
+
+char * char_alloc(int x) {
+    char *ret = (char *)malloc(x + 1);
+    memset(ret, x + 1, 0);
+    return ret;
+}
+
+char *type2str(Type *t) {
+    if (t->type == VARIABLE) {
+        char *ret = char_alloc(strlen(t->type_name));
+        strcpy(ret, t->type_name);
+        return ret;
+    }
+    else if(t->type == FUNCTION) {
+        char *from = type2str(t->from);
+        char *to = type2str(t->to);
+        char *ret = char_alloc(strlen(from) + strlen(to) + 2);
+        strscpy(ret, 3, from, "->", to);
+        free(from);
+        free(to);
+        return ret;
+    } else {
+        char *tmp = type2str(t->type_fn);
+        char *ret = char_alloc(strlen(tmp) + 2);
+        strscpy(ret, 3, "(", tmp, ")");
+        free(tmp);
+        return ret;
+    }
+}
 
 int typecmp(Type *a, Type *b) {
-    if (a->type == VARIABLE && b->type == VARIABLE
-            && strcmp(a->type_name, b->type_name) == 0) {
-        return 1;
-    }
-
-    if (a->type == FUNCTION && b->type == FUNCTION) {
-        int from_flag = typecmp(a->from, b->from);
-        int to_flag = typecmp(a->to, b->to);
-        return from_flag & to_flag;
-    }
-    else if (a->type == TYPE && b->type == TYPE) {
-        return typecmp(a->type_fn, b->type_fn);
-    }
-    else {
-        return 0;
-    }
+    char *s = type2str(a);
+    char *t = type2str(b);
+    return strcmp(s, t) == 0;
 }
 
 
@@ -76,12 +110,9 @@ void _print_type(Type*t){
         printf("%s", t->type_name);
     }
     else if(t->type == FUNCTION) {
-        //printf("(");
         _print_type(t->from);
-        //printf(")->(");
         printf(" -> ");
         _print_type(t->to);
-        //printf(")");
     } else {
         printf("(");
         _print_type(t->type_fn);
@@ -187,9 +218,6 @@ Type* dfsAst(Ast *ast, vector<Variable*>globals) {
             }
         }
         else {
-            printf("hel\n");
-            printf("p%lx\n", (unsigned long)(ast->val->type));
-            print_type(ast->val->type);
             return ast->val->type;
         }
     }
@@ -299,19 +327,101 @@ char *create_substr(char *s, int st, int ed) {
     ret[ed - st] = 0;
     return ret;
 }
+Type * _make_no_func_type_from_str(char *s) {
+    static const char var_regex[] = "^ *([a-zA-Z][a-zA-Z0-9]*) *$";
+    regex_t varbuf;
+    if(regcomp(&varbuf, var_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
+    {
+        printf("regex error..!\n");
+        exit(-1);
+    }
+    regmatch_t pm[2];
+    if(regexec(&varbuf, s, 2, pm, 0) == 0)
+    {
+        char *name = create_substr(s, pm[1].rm_so, pm[1].rm_eo);
+        Type *t = make_type();
+        t->type = VARIABLE;
+        t->type_name = name;
+        return t;
+    }
+    static const char var_pr_regex[]
+        = "^ *\\((.+)\\) *$";
+    regex_t buf;
+    if(regcomp(&buf, var_pr_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
+    {
+        printf("regex error..!\n");
+        exit(-1);
+    }
+    if(regexec(&buf, s, 2, pm, 0) == 0)
+    {
+        char *name = create_substr(s, pm[1].rm_so, pm[1].rm_eo);
+        Type *t = make_type_from_str(name);
+        Type *ret = make_type();
+        ret->type = TYPE;
+        ret->type_fn = t;
+
+        return ret;
+    }
+}
+Type * make_type_from_str(char *s) {
+    //static const char arrow[] = "^ *(.+?)->(.+)$";
+    int l = strlen(s);
+    int open_cnt = 0;
+    int st = 0;
+    Type *ret;
+    for (int i = 0; i < l; i++) {
+        if (s[i] == '-' && (i + 1) < l && s[i + 1] == '>' && open_cnt == 0) {
+            char *type_str = create_substr(s, st, i);
+            Type *t = _make_no_func_type_from_str(type_str);
+            if (st == 0) {
+                ret = t;
+            }
+            else {
+                ret = make_func_type(ret, t);
+            }
+            if ((i + 2) >= l) {
+                printf("Invalid syntax\n");
+                exit(-1);
+            }
+            st = i + 2;
+            i = st;
+        }
+        else if (s[i] == '(') {
+            open_cnt++;
+        }
+        else if(s[i] == ')') {
+            if (open_cnt <= 0) {
+                printf("parenthesis is illegal\n");
+                exit(-1);
+            }
+            open_cnt--;
+        }
+    }
+    // TODO:
+    // finally ... -> [koko]
+    char *type_str = create_substr(s, st, l);
+    Type *t = _make_no_func_type_from_str(type_str);
+    if (st == 0) {
+        ret = t;
+    }
+    else {
+        ret = make_func_type(ret, t);
+    }
+    return ret;
+}
 
 Ast *str2ast(char *s) {
     // lambda x:var matching
     static const char lambda_regex[]
-        = "^lambda +([a-zA-Z][a-zA-Z0-9]*):([a-zA-Z][a-zA-Z0-9]*)\\.(.+)$";
-    regex_t regexBufferLambda;
-    if(regcomp(&regexBufferLambda, lambda_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
+        = "^ *lambda +([a-zA-Z][a-zA-Z0-9]*):([^.]+)\\.(.+)$";
+    regex_t lambdabuf;
+    if(regcomp(&lambdabuf, lambda_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
     {
         printf("regex error..!\n");
         exit(-1);
     }
     regmatch_t pm[4];
-    if( regexec( &regexBufferLambda, s, 4, pm, 0 ) == 0 )
+    if( regexec( &lambdabuf, s, 4, pm, 0 ) == 0 )
     {
         // var name
         int st, ed;
@@ -322,30 +432,30 @@ Ast *str2ast(char *s) {
         Ast *right = str2ast(exp);
         free(exp);
 
-        Type *t = make_type();
-        t->type = VARIABLE;
-        t->type_name = type_name;
+        Type *t = make_type_from_str(type_name);
 
         Ast *left = make_lambda_prim_ast(name, t);
         Ast *ret = make_lambda_ast(left, right);
         return ret;
     }
 
-    static const char apply_regex[] = "^([a-zA-Z][a-zA-Z0-9]*)\\((.*)\\)$";
-    regex_t regexBufferApply;
-    if(regcomp(&regexBufferApply, lambda_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
+    // Apply Handling
+    static const char apply_regex[] = "^ *([a-zA-Z][a-zA-Z0-9]*)\\((.*)\\)$";
+    regex_t applybuf;
+    if(regcomp(&applybuf, lambda_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
     {
         printf("regex error..!\n");
         exit(-1);
     }
     regmatch_t applypm[4];
-    if(regexec(&regexBufferApply, s, 4, applypm, 0) == 0)
+    if(regexec(&applybuf, s, 4, applypm, 0) == 0)
     {
         // toridashi syori
         printf("[!]%s\n", s);
     }
 
-    static const char var_regex[] = "[A-Za-z][A-Za-z]*";
+    // Variable Handling
+    static const char var_regex[] = " *[A-Za-z][A-Za-z]*";
     regex_t varbuf;
     if (regcomp(&varbuf, var_regex, REG_EXTENDED | REG_NEWLINE) != 0) {
         printf("regex error...!\n");
@@ -362,46 +472,47 @@ Ast *str2ast(char *s) {
     exit(-1);
 }
 
+int find_first_split_point(char *s, char split_c) {
+    int l = strlen(s);
+    int i;
+    for (i = 0; i < l; i++)
+        if (split_c == s[i])
+            break;
+    return i;
+}
+
+
 int verify(char* s) {
+    printf("-----debug-----\n");
     int l = strlen(s);
     // TODO: Semantic Parsing
     // TODO: Type Inference
 
-    /*** Define Types ***/
-    Type *Int2Int_t = make_func_type(&INT_t, &INT_t);;
-    Type *Int2Int_fn_t = make_type();
-    Int2Int_fn_t->type = TYPE;
-    Int2Int_fn_t->type_fn = Int2Int_t;
-    Type *Int2Int_fn_2_Int_t = make_func_type(Int2Int_fn_t, Int2Int_t);
+    int split_point = find_first_split_point(s, '=');
+    char * lambda_str = create_substr(s, split_point + 1, l);
+    char *let_str = create_substr(s, 0, split_point);
 
-    /*** Making Variables ***/
-    Variable *x = make_variable_by_name("x");
-    Variable *f= make_variable_by_name("f");
+    int split_point_2 = find_first_split_point(let_str, ':');
+    char *type_str = create_substr(let_str, split_point_2 + 1, split_point);
+    char *func_name = create_substr(let_str, 0, split_point_2);
+    free(let_str);
 
-    /*** Built ASTs ***/
-    Ast *f1_ast = make_var_ast(f);
-    Ast *x_ast = make_var_ast(x);
-    Ast *f2_ast = make_var_ast(f);
-
-    Ast *lambda_x_ast = make_lambda_prim_ast("x", &INT_t);
-    Ast *lambda_f_ast = make_lambda_prim_ast("f", Int2Int_fn_t);
-
-    Ast *applyx = make_apply_ast(f1_ast, x_ast);
-    Ast *applyfx = make_apply_ast(f2_ast, applyx);
-    Ast *lambda_x = make_lambda_ast(lambda_x_ast, applyfx);
-    Ast *lambda_f = make_lambda_ast(lambda_f_ast, lambda_x);
-
-    Ast *ast = lambda_f;  // target ast
-    Type *target = Int2Int_fn_2_Int_t;  // make_lambda should have int->int
+    Ast *ast = str2ast(lambda_str);
     print_ast(ast);
 
     /** Global Variable Settings **/
     vector<Variable*> globals;
 
     Type *type = dfsAst(ast, globals);
+    Type *target = make_type_from_str(type_str);
+    char *s2 = type2str(type);
     print_type(type);
+    print_type(target);
+
+    //Type *target = make_func_type(&INT_t, &INT_t);;
     int result = typecmp(type, target);
     // TODO: Free
+    printf("-----debug-----\n");
 
     return result;
 }

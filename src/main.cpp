@@ -3,7 +3,7 @@
 
 int main(void) {
     char s[101];
-    scanf("%100s", s);
+    fgets(s, 100, stdin);
     int flag = verify(s);
     if (flag == 1) {
         printf("OK\n");
