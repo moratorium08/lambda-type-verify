@@ -407,6 +407,13 @@ Type * make_type_from_str(char *s) {
     else {
         ret = make_func_type(ret, t);
     }
+    if (ret->type == FUNCTION) {
+        Type *tmp = ret;
+        ret = make_type();
+        ret->type = TYPE;
+        ret->type_fn = tmp;
+    }
+
     return ret;
 }
 
@@ -442,7 +449,7 @@ Ast *str2ast(char *s) {
     // Apply Handling
     static const char apply_regex[] = "^ *([a-zA-Z][a-zA-Z0-9]*)\\((.*)\\)$";
     regex_t applybuf;
-    if(regcomp(&applybuf, lambda_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
+    if(regcomp(&applybuf, apply_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
     {
         printf("regex error..!\n");
         exit(-1);
@@ -450,12 +457,20 @@ Ast *str2ast(char *s) {
     regmatch_t applypm[4];
     if(regexec(&applybuf, s, 4, applypm, 0) == 0)
     {
-        // toridashi syori
-        printf("[!]%s\n", s);
+        char *name = create_substr(s, applypm[1].rm_so, applypm[1].rm_eo);
+        char *exp = create_substr(s, applypm[2].rm_so, applypm[2].rm_eo);
+
+        Ast *right = str2ast(exp);
+        free(exp);
+
+        Variable *func = make_variable_by_name(name);
+        Ast *left = make_var_ast(func);
+        Ast *ret = make_apply_ast(left, right);
+        return ret;
     }
 
     // Variable Handling
-    static const char var_regex[] = " *[A-Za-z][A-Za-z]*";
+    static const char var_regex[] = "^ *[A-Za-z][A-Za-z]*$";
     regex_t varbuf;
     if (regcomp(&varbuf, var_regex, REG_EXTENDED | REG_NEWLINE) != 0) {
         printf("regex error...!\n");
@@ -481,7 +496,6 @@ int find_first_split_point(char *s, char split_c) {
     return i;
 }
 
-
 int verify(char* s) {
     printf("-----debug-----\n");
     int l = strlen(s);
@@ -504,9 +518,10 @@ int verify(char* s) {
     vector<Variable*> globals;
 
     Type *type = dfsAst(ast, globals);
-    Type *target = make_type_from_str(type_str);
-    char *s2 = type2str(type);
     print_type(type);
+    printf("--\n");
+
+    Type *target = make_type_from_str(type_str);
     print_type(target);
 
     //Type *target = make_func_type(&INT_t, &INT_t);;
