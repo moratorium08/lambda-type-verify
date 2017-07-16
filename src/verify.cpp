@@ -61,6 +61,7 @@ void strscpy(char *buf, int count, ...) {
             buf[idx++] = tmp[j];
         }
     }
+    buf[idx] = 0;
 }
 
 
@@ -77,28 +78,48 @@ char *type2str(Type *t) {
         return ret;
     }
     else if(t->type == FUNCTION) {
+        static const char arrow[] = "->";
         char *from = type2str(t->from);
         char *to = type2str(t->to);
         char *ret = char_alloc(strlen(from) + strlen(to) + 2);
-        strscpy(ret, 3, from, "->", to);
+        strscpy(ret, 3, from, arrow, to);
         free(from);
         free(to);
         return ret;
     } else {
+        static const char par_left[] = "(";
+        static const char par_right[] = ")";
         char *tmp = type2str(t->type_fn);
         char *ret = char_alloc(strlen(tmp) + 2);
-        strscpy(ret, 3, "(", tmp, ")");
+        strscpy(ret, 3, par_left, tmp, par_right);
         free(tmp);
         return ret;
     }
 }
+int _typecmp(Type *a, Type *b) {
+    if (a->type == VARIABLE && b->type == VARIABLE
+            && strcmp(a->type_name, b->type_name) == 0) {
+        return 1;
+    }
+    if (a->type == FUNCTION && b->type == FUNCTION) {
+        int from_flag = _typecmp(a->from, b->from);
+        int to_flag = _typecmp(a->to, b->to);
+        return from_flag & to_flag;
+    }
+    else if (a->type == TYPE && b->type == TYPE) {
+        return _typecmp(a->type_fn, b->type_fn);
+    }
+    else {
+        return 0;
+    }
+}
 
+// TODO : make more logical way
 int typecmp(Type *a, Type *b) {
     char *s = type2str(a);
     char *t = type2str(b);
     return strcmp(s, t) == 0;
 }
-
 
 void _print_spaces(int space) {
     for (int i = 0 ; i < space; i++) {
@@ -327,6 +348,7 @@ char *create_substr(char *s, int st, int ed) {
     ret[ed - st] = 0;
     return ret;
 }
+
 Type * _make_no_func_type_from_str(char *s) {
     static const char var_regex[] = "^ *([a-zA-Z][a-zA-Z0-9]*) *$";
     regex_t varbuf;
@@ -335,6 +357,7 @@ Type * _make_no_func_type_from_str(char *s) {
         printf("regex error..!\n");
         exit(-1);
     }
+
     regmatch_t pm[2];
     if(regexec(&varbuf, s, 2, pm, 0) == 0)
     {
@@ -355,15 +378,15 @@ Type * _make_no_func_type_from_str(char *s) {
     if(regexec(&buf, s, 2, pm, 0) == 0)
     {
         char *name = create_substr(s, pm[1].rm_so, pm[1].rm_eo);
-        Type *t = make_type_from_str(name);
+        Type *t = make_type_from_str(name, 0);
         Type *ret = make_type();
         ret->type = TYPE;
         ret->type_fn = t;
-
         return ret;
     }
 }
-Type * make_type_from_str(char *s) {
+
+Type * make_type_from_str(char *s, int type_wrap_if_func) {
     //static const char arrow[] = "^ *(.+?)->(.+)$";
     int l = strlen(s);
     int open_cnt = 0;
@@ -384,7 +407,7 @@ Type * make_type_from_str(char *s) {
                 exit(-1);
             }
             st = i + 2;
-            i = st;
+            i = st - 1;
         }
         else if (s[i] == '(') {
             open_cnt++;
@@ -407,7 +430,7 @@ Type * make_type_from_str(char *s) {
     else {
         ret = make_func_type(ret, t);
     }
-    if (ret->type == FUNCTION) {
+    if (ret->type == FUNCTION && type_wrap_if_func==1) {
         Type *tmp = ret;
         ret = make_type();
         ret->type = TYPE;
@@ -439,7 +462,7 @@ Ast *str2ast(char *s) {
         Ast *right = str2ast(exp);
         free(exp);
 
-        Type *t = make_type_from_str(type_name);
+        Type *t = make_type_from_str(type_name, 1);
 
         Ast *left = make_lambda_prim_ast(name, t);
         Ast *ret = make_lambda_ast(left, right);
@@ -497,7 +520,7 @@ int find_first_split_point(char *s, char split_c) {
 }
 
 int verify(char* s) {
-    printf("-----debug-----\n");
+    // printf("-----debug-----\n");
     int l = strlen(s);
     // TODO: Semantic Parsing
     // TODO: Type Inference
@@ -512,22 +535,21 @@ int verify(char* s) {
     free(let_str);
 
     Ast *ast = str2ast(lambda_str);
-    print_ast(ast);
+    //print_ast(ast);
 
     /** Global Variable Settings **/
     vector<Variable*> globals;
 
     Type *type = dfsAst(ast, globals);
-    print_type(type);
-    printf("--\n");
+    // print_type(type);
 
-    Type *target = make_type_from_str(type_str);
-    print_type(target);
+    Type *target = make_type_from_str(type_str, 0);
+    // print_type(target);
 
     //Type *target = make_func_type(&INT_t, &INT_t);;
     int result = typecmp(type, target);
     // TODO: Free
-    printf("-----debug-----\n");
+    // printf("-----debug-----\n");
 
     return result;
 }
