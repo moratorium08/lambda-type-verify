@@ -6,6 +6,8 @@
 #include<cmath>
 #include<map>
 #include<set>
+#include<string.h>
+#include<cstdlib>
 #include "verify.h"
 using namespace std;
 const int INF = 1 << 29;
@@ -21,6 +23,18 @@ extern int typecmp(Type *a, Type *b);
 extern Type* dfsAst(Ast *ast, vector<Variable*> globals);
 
 void run_test(string describe, int flag, int space);
+
+void test_variable() {
+    cout << "Variable" << endl;
+    Variable *v = make_variable_by_name("v");
+    run_test("make_variable_by_name", strcmp(v->name, "v") == 0, 2);
+    Type *t = make_primitive("test");
+    Variable *v2 = make_variable("v2", t);
+    int flag = strcmp(v2->name, "v2") == 0;
+    flag &= typecmp(v2->type, t);
+    run_test("make_variable", flag, 2);
+}
+
 
 int test_id() {
     Variable *x = make_variable_by_name("x");
@@ -168,6 +182,7 @@ void test_overall_ast_function() {
 int main(int argc, char * argv[])
 {
     ios::sync_with_stdio(false);
+    test_variable();
     test_overall_ast_function();
     test_overall_type_verification();
     return 0;
