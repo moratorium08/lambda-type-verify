@@ -24,15 +24,38 @@ extern Type* dfsAst(Ast *ast, vector<Variable*> globals);
 
 void run_test(string describe, int flag, int space);
 
+int test_passed_count = 0;
+int test_count = 0;
+
 void test_variable() {
     cout << "Variable" << endl;
     Variable *v = make_variable_by_name("v");
     run_test("make_variable_by_name", strcmp(v->name, "v") == 0, 2);
+
     Type *t = make_primitive("test");
     Variable *v2 = make_variable("v2", t);
     int flag = strcmp(v2->name, "v2") == 0;
     flag &= typecmp(v2->type, t);
     run_test("make_variable", flag, 2);
+}
+
+void test_type() {
+    cout << "Type" << endl;
+    Type *t = make_primitive("prim");
+    run_test("typecmp", typecmp(t, t), 2);
+    run_test("make_primitive type", t->type == VARIABLE, 2);
+    run_test("make_primitive name", strcmp(t->type_name, "prim") == 0, 2);
+
+    Type *t2 = make_primitive("to");
+    Type *f = make_func_type(t, t2);
+    run_test("make_func_type from", typecmp(f->from, t), 2);
+    run_test("make_func_type to", typecmp(f->to, t2), 2);
+
+    Type *ap = apply_type(f, t);
+    run_test("apply_type", typecmp(ap, t2), 2);
+
+    Type *t3 = make_type_from_str("prim->to", 0);
+    run_test("make_type_from_str", typecmp(t3, f), 2);
 }
 
 
@@ -133,11 +156,13 @@ void run_test(string describe, int flag, int space) {
     print_spaces(space);
     cout << describe << "...";
     if (flag) {
-        cout << "OK" << endl;
+        test_passed_count++;
+        cout << "\033[32mOK\033[0m" << endl;
     }
     else {
-        cout << "NG" << endl;
+        cout << "\033[31mNG\033[0m" << endl;
     }
+    test_count++;
 }
 
 void test_overall_type_verification() {
@@ -179,11 +204,23 @@ void test_overall_ast_function() {
     }
 }
 
+void print_result() {
+    cout << endl;
+    if (test_passed_count == test_count) {
+        cout << "\033[32mAll tests passed.\033[0m" << endl;
+    } else{
+        cout << "\033[31mTest Failed. \033[33m" << test_passed_count;
+        cout << " / " << test_count << "\033[0m" << endl;
+    }
+}
+
 int main(int argc, char * argv[])
 {
     ios::sync_with_stdio(false);
     test_variable();
+    test_type();
     test_overall_ast_function();
     test_overall_type_verification();
+    print_result();
     return 0;
 }
