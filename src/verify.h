@@ -67,6 +67,10 @@ Type * make_func_type(Type *from, Type *to);
 Type * make_primitive(char * type_name);
 Type * make_type_from_str(char *s, int type_wrap_if_func);
 
+void print_ast(Ast *ast);
+void print_type(Type *type);
+void print_var(Variable *var);
+
 int verify(char * s);
 Ast * str2ast(char *s);
 

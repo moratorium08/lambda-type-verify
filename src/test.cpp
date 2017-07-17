@@ -20,38 +20,17 @@ typedef long long ll;
 extern int typecmp(Type *a, Type *b);
 extern Type* dfsAst(Ast *ast, vector<Variable*> globals);
 
+void run_test(string describe, int flag, int space);
+
 int test_id() {
-    Type INT2INT_t;
-    INT2INT_t.type = FUNCTION;
-    INT2INT_t.from = &INT_t;
-    INT2INT_t.to = &INT_t;
-
-    /*** Making Variables ***/
-    Variable x, const1, add;
-    x.name = "x";
-
-    /*** Built ASTs ***/
-    Ast x_ast, lambda_x_ast, ast;
-    x_ast.type = VARIABLE_AST;
-    lambda_x_ast.type = LAMBDA_PRIM_AST;
-    x_ast.val = &x;
-    Lambda lambda;
-    Variable x_g;
-    x_g.name = "x";
-    x_g.type = &INT_t;
-    lambda.arg = &x_g;
-    lambda_x_ast.lambda = &lambda;
-    ast.type = LAMBDA_AST;
-    ast.left = &lambda_x_ast;
-    ast.right = &x_ast;
-
-    Type *target = &INT2INT_t;
-
-    // make_lambda should have int->int
-
+    Variable *x = make_variable_by_name("x");
+    Ast *x_ast = make_var_ast(x);
+    Ast *lambda_x_ast = make_lambda_prim_ast("x", &INT_t);
+    Ast *lambda_x = make_lambda_ast(lambda_x_ast, x_ast);
+    Type *int_t = make_primitive("int");
+    Type *target = make_func_type(int_t, int_t);
     vector<Variable*> globals;
-    Type *type = dfsAst(&ast, globals);
-    // print_type(type);
+    Type *type = dfsAst(lambda_x, globals);
 
     return typecmp(type, target);
 }
@@ -120,6 +99,7 @@ int test_int2int_2int2int() {
     return typecmp(type, target);
 }
 
+
 int test_id_from_parser() {
     vector<Variable *> globals;
     Ast *ast = str2ast("lambda y:int.y");
@@ -128,7 +108,15 @@ int test_id_from_parser() {
     return typecmp(Int2Int_t, type);
 }
 
-void run_test(string describe, int flag) {
+void print_spaces(int space) {
+    for (int i = 0; i < space; i++ ) {
+        cout << " ";
+    }
+}
+
+
+void run_test(string describe, int flag, int space) {
+    print_spaces(space);
     cout << describe << "...";
     if (flag) {
         cout << "OK" << endl;
@@ -138,19 +126,49 @@ void run_test(string describe, int flag) {
     }
 }
 
+void test_overall_type_verification() {
+    cout << "Over All Type Verification Check" << endl;
+    try {
+        int flag = test_id_from_parser();
+        run_test("verify id from parser", flag, 2);
+
+        char id[] = "id:int->int = lambda x:int.x";
+        char fx[] = "f:(int->int)->int->int = lambda f:int->int.lambda x:int.f(x)";
+        char fail_fx[] = "f:(int->int)->int->int = lambda f:int->str.lambda x:int.f(x)";
+        int ret = verify(id);
+        run_test(id, ret, 2);
+        ret = verify(fx);
+        run_test(fx, ret, 2);
+        ret = verify(fail_fx);
+        run_test(fail_fx, ret ^ 1, 2);
+    }
+    catch (char *str) {
+        cout << "  Failed." << endl;
+    }
+}
+
+void test_overall_ast_function() {
+    cout << "Overall Ast Function Check" << endl;
+
+    try {
+        int flag = test_id();
+        run_test("run test id matching", flag, 2);
+
+        flag = test_int2int();
+        run_test("verify lambda x:int.+(x)(1)", flag, 2);
+
+        flag = test_int2int_2int2int();
+        run_test("verify lambda f:int->int.lambda x:int.f(f(x))", flag, 2);
+    }
+    catch (char *str) {
+        cout << "  Failed." << endl;
+    }
+}
+
 int main(int argc, char * argv[])
 {
     ios::sync_with_stdio(false);
-    int flag = test_id();
-    run_test("run test id matching", flag);
-
-    flag = test_int2int();
-    run_test("verify lambda x:int. x + 1", flag);
-
-    flag = test_int2int_2int2int();
-    run_test("verify lambda f:int->int.lambda x:int.f(f(x))", flag);
-
-    flag = test_id_from_parser();
-    run_test("verify id from parser", flag);
+    test_overall_ast_function();
+    test_overall_type_verification();
     return 0;
 }
