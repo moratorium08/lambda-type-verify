@@ -1,4 +1,5 @@
-#include <stdio.h>
+#include <cstdio>
+#include <cstring>
 #include "verify.h"
 
 int main(void) {

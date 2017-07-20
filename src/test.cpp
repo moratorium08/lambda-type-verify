@@ -9,6 +9,7 @@
 #include<string.h>
 #include<cstdlib>
 #include "verify.h"
+#include "type.h"
 using namespace std;
 const int INF = 1 << 29;
 const double EPS = 1e-9;
@@ -26,6 +27,13 @@ void run_test(string describe, int flag, int space);
 
 int test_passed_count = 0;
 int test_count = 0;
+Type *INT_t;
+
+void init(){
+    INT_t = make_type();
+    INT_t->type_name = "int";
+    INT_t->type = VARIABLE;
+}
 
 void test_variable() {
     cout << "Variable" << endl;
@@ -62,7 +70,7 @@ void test_type() {
 int test_id() {
     Variable *x = make_variable_by_name("x");
     Ast *x_ast = make_var_ast(x);
-    Ast *lambda_x_ast = make_lambda_prim_ast("x", &INT_t);
+    Ast *lambda_x_ast = make_lambda_prim_ast("x", INT_t);
     Ast *lambda_x = make_lambda_ast(lambda_x_ast, x_ast);
     Type *int_t = make_primitive("int");
     Type *target = make_func_type(int_t, int_t);
@@ -75,8 +83,8 @@ int test_id() {
 // lambda x: x + 1
 int test_int2int() {
     /*** Define Types ***/
-    Type *INT2INT_t = make_func_type(&INT_t, &INT_t);;
-    Type *INT2INT2INT_t = make_func_type(INT2INT_t, &INT_t);
+    Type *INT2INT_t = make_func_type(INT_t, INT_t);;
+    Type *INT2INT2INT_t = make_func_type(INT2INT_t, INT_t);
 
     /*** Making Variables ***/
     Variable *x = make_variable_by_name("x");
@@ -87,7 +95,7 @@ int test_int2int() {
     Ast *const1_ast = make_var_ast(const1);
     Ast *x_ast = make_var_ast(x);
     Ast *add_ast = make_var_ast(add);
-    Ast *lambda_x_ast = make_lambda_prim_ast("x", &INT_t);
+    Ast *lambda_x_ast = make_lambda_prim_ast("x", INT_t);
     Ast *applyx = make_apply_ast(add_ast, x_ast);
     Ast *apply1 = make_apply_ast(applyx, const1_ast);
     Ast *lambda_x = make_lambda_ast(lambda_x_ast, apply1);
@@ -96,7 +104,7 @@ int test_int2int() {
     Type *target = INT2INT_t;  // make_lambda should have int->int
 
     /** Global Variable Settings **/
-    Variable *const1_g = make_variable("!1", &INT_t);
+    Variable *const1_g = make_variable("!1", INT_t);
     Variable *add_g= make_variable("+", INT2INT2INT_t);
     vector<Variable*> globals;
     globals.push_back(add_g);
@@ -107,7 +115,7 @@ int test_int2int() {
 }
 
 int test_int2int_2int2int() {
-    Type *Int2Int_t = make_func_type(&INT_t, &INT_t);;
+    Type *Int2Int_t = make_func_type(INT_t, INT_t);;
     Type *Int2Int_fn_t = make_type();
     Int2Int_fn_t->type = TYPE;
     Int2Int_fn_t->type_fn = Int2Int_t;
@@ -120,7 +128,7 @@ int test_int2int_2int2int() {
     Ast *x_ast = make_var_ast(x);
     Ast *f2_ast = make_var_ast(f);
 
-    Ast *lambda_x_ast = make_lambda_prim_ast("x", &INT_t);
+    Ast *lambda_x_ast = make_lambda_prim_ast("x", INT_t);
     Ast *lambda_f_ast = make_lambda_prim_ast("f", Int2Int_fn_t);
 
     Ast *applyx = make_apply_ast(f1_ast, x_ast);
@@ -141,7 +149,7 @@ int test_id_from_parser() {
     vector<Variable *> globals;
     Ast *ast = str2ast("lambda y:int.y");
     Type *type = dfsAst(ast, globals);
-    Type *Int2Int_t = make_func_type(&INT_t, &INT_t);;
+    Type *Int2Int_t = make_func_type(INT_t, INT_t);;
     return typecmp(Int2Int_t, type);
 }
 
@@ -221,6 +229,7 @@ void print_result() {
 int main(int argc, char * argv[])
 {
     ios::sync_with_stdio(false);
+    init();
     test_variable();
     test_type();
     test_overall_ast_function();
