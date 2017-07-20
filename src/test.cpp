@@ -174,12 +174,16 @@ void test_overall_type_verification() {
         char id[] = "id:int->int = lambda x:int.x";
         char fx[] = "f:(int->int)->int->int = lambda f:int->int.lambda x:int.f(x)";
         char fail_fx[] = "f:(int->int)->int->int = lambda f:int->str.lambda x:int.f(x)";
+        char apply_lambda[] = "f:int->int = lambda x:int.(lambda y:int.y)(x)";
+
         int ret = verify(id);
         run_test(id, ret, 2);
         ret = verify(fx);
         run_test(fx, ret, 2);
         ret = verify(fail_fx);
         run_test(fail_fx, ret ^ 1, 2);
+        ret = verify(apply_lambda);
+        run_test(apply_lambda, ret, 2);
     }
     catch (char *str) {
         cout << "  Failed." << endl;

@@ -96,6 +96,7 @@ char *type2str(Type *t) {
         return ret;
     }
 }
+
 int _typecmp(Type *a, Type *b) {
     if (a->type == VARIABLE && b->type == VARIABLE
             && strcmp(a->type_name, b->type_name) == 0) {
@@ -454,10 +455,8 @@ Ast *str2ast(char *s) {
     if( regexec( &lambdabuf, s, 4, pm, 0 ) == 0 )
     {
         // var name
-        int st, ed;
         char *name = create_substr(s, pm[1].rm_so, pm[1].rm_eo);
         char *type_name = create_substr(s, pm[2].rm_so, pm[2].rm_eo);
-
         char *exp = create_substr(s, pm[3].rm_so, pm[3].rm_eo);
         Ast *right = str2ast(exp);
         free(exp);
@@ -470,7 +469,7 @@ Ast *str2ast(char *s) {
     }
 
     // Apply Handling
-    static const char apply_regex[] = "^ *([a-zA-Z][a-zA-Z0-9]*)\\((.*)\\)$";
+    static const char apply_regex[] = "^ *(.+)\\((.*)\\)$";
     regex_t applybuf;
     if(regcomp(&applybuf, apply_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
     {
@@ -480,30 +479,43 @@ Ast *str2ast(char *s) {
     regmatch_t applypm[4];
     if(regexec(&applybuf, s, 4, applypm, 0) == 0)
     {
-        char *name = create_substr(s, applypm[1].rm_so, applypm[1].rm_eo);
+        char *func_str = create_substr(s, applypm[1].rm_so, applypm[1].rm_eo);
         char *exp = create_substr(s, applypm[2].rm_so, applypm[2].rm_eo);
 
         Ast *right = str2ast(exp);
         free(exp);
 
-        Variable *func = make_variable_by_name(name);
-        Ast *left = make_var_ast(func);
+        Ast *left = str2ast(func_str);
         Ast *ret = make_apply_ast(left, right);
         return ret;
     }
 
     // Variable Handling
-    static const char var_regex[] = "^ *[A-Za-z][A-Za-z]*$";
+    static const char var_regex[] = "^ *([A-Za-z][A-Za-z0-9]*)$";
     regex_t varbuf;
     if (regcomp(&varbuf, var_regex, REG_EXTENDED | REG_NEWLINE) != 0) {
         printf("regex error...!\n");
         exit(-1);
     }
-    regmatch_t varpm[1];
-    if (regexec(&varbuf, s, 1, varpm, 0) == 0) {
-        char *name = create_substr(s, varpm[0].rm_so, varpm[0].rm_eo);
+    regmatch_t varpm[2];
+    if (regexec(&varbuf, s, 2, varpm, 0) == 0) {
+        char *name = create_substr(s, varpm[1].rm_so, varpm[1].rm_eo);
         Variable *x = make_variable_by_name(name);
         Ast *ast = make_var_ast(x);
+        return ast;
+    }
+
+    // Variable Handling
+    static const char par_regex[] = "^ *\\((.+)\\) *$";
+    regex_t parbuf;
+    if (regcomp(&parbuf, par_regex, REG_EXTENDED | REG_NEWLINE) != 0) {
+        printf("regex error...!\n");
+        exit(-1);
+    }
+    regmatch_t parpm[2];
+    if (regexec(&parbuf, s, 2, parpm, 0) == 0) {
+        char *str_in_par = create_substr(s, parpm[1].rm_so, parpm[1].rm_eo);
+        Ast *ast = str2ast(str_in_par);
         return ast;
     }
     printf("Illegal Grammar\n");
@@ -535,7 +547,6 @@ int verify(char* s) {
     free(let_str);
 
     Ast *ast = str2ast(lambda_str);
-    //print_ast(ast);
 
     /** Global Variable Settings **/
     vector<Variable*> globals;
