@@ -3,7 +3,47 @@
 #include "util.h"
 #include "type.h"
 
+// a <- b, free(b)
+void typecpy(Type *a, Type *b) {
+    if (a == b) return;
+    a->type = b->type;
+    switch (b->type) {
+        case FUNCTION:
+            a->from = b->from;
+            a->to = b->to;
+            break;
+        case VARIABLE:
+            a->type_name = b->type_name;
+            break;
+        case TYPE:
+            a->type_fn = b->type_fn;
+            break;
+        case UNKNOWN:
+            a->id = b->id;
+            break;
+    }
+}
 
+Type *make_unknown_type(int id){
+    Type *type = (Type*)malloc(sizeof(Type));
+    type->type = UNKNOWN;
+    type->id = id;
+    return type;
+}
+Type * make_primitive(char * type_name) {
+    Type *type = (Type*)malloc(sizeof(Type));
+    type->type = VARIABLE;
+    type->type_name = type_name;
+    return type;
+}
+
+Type * make_func_type(Type *from, Type *to) {
+    Type *ret = (Type*)malloc(sizeof(Type));
+    ret->type = FUNCTION;
+    ret->from = from;
+    ret->to = to;
+    return ret;
+}
 char *type2str(Type *t) {
     if (t->type == VARIABLE) {
         char *ret = char_alloc(strlen(t->type_name));
@@ -19,7 +59,13 @@ char *type2str(Type *t) {
         free(from);
         free(to);
         return ret;
-    } else {
+    }
+    else if(t->type == UNKNOWN) {
+        char *ret = char_alloc(21);
+        sprintf(ret, "?%d", t->id);
+        return ret;
+    }
+    else {
         static const char par_left[] = "(";
         static const char par_right[] = ")";
         char *tmp = type2str(t->type_fn);
@@ -39,6 +85,9 @@ int _typecmp(Type *a, Type *b) {
         int from_flag = _typecmp(a->from, b->from);
         int to_flag = _typecmp(a->to, b->to);
         return from_flag & to_flag;
+    }
+    else if (a->type == TYPE && b->type == TYPE) {
+        return _typecmp(a->type_fn, b->type_fn);
     }
     else if (a->type == TYPE && b->type == TYPE) {
         return _typecmp(a->type_fn, b->type_fn);
@@ -63,7 +112,11 @@ void _print_type(Type*t){
         _print_type(t->from);
         printf(" -> ");
         _print_type(t->to);
-    } else {
+    }
+    else if(t->type == UNKNOWN) {
+        printf("?%d", t->id);
+    }
+    else {
         printf("(");
         _print_type(t->type_fn);
         printf(")");

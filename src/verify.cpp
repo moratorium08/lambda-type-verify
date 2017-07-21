@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <vector>
+#include <map>
 #include <regex.h>
 #include "verify.h"
 #include "type.h"
@@ -20,6 +21,18 @@ using namespace std;
  * let f:int->int = lambda x:int. +(x)(1)
  * -> ok
  */
+
+void print_constraiant(Constraint *c, int new_line) {
+    switch (c->type) {
+        case EQUAL_C:
+            _print_type(c->left);
+            printf(" = ");
+            _print_type(c->right);
+    }
+    if (new_line) {
+        printf("\n");
+    }
+}
 
 Type* dfsAst(Ast *ast, vector<Variable*>globals) {
     if (ast->type == VARIABLE_AST) {
@@ -56,6 +69,156 @@ Type* dfsAst(Ast *ast, vector<Variable*>globals) {
     exit(-1);
 }
 
+Constraint * make_eq_constraiant(Type *left, Type *right) {
+    Constraint * cnt = (Constraint *)malloc(sizeof(Constraint));
+    cnt->type = EQUAL_C;
+    cnt->left = left;
+    cnt->right = right;
+    return cnt;
+}
+
+Type *dfsInsertAst(Ast *ast, vector<Variable *> globals, vector<Constraint *> *constraints, map<int, Type *> *unknown_types) {
+    if (ast->type == VARIABLE_AST) {
+        if (!(ast->val->type)) {
+            Type *t = get_type(ast->val, globals);
+            if (!t) {
+                Type *t = make_unknown_type(unknown_types->size());
+                ast->val->type = t;
+                return t;
+            }
+            return t;
+        }
+        else {
+            return ast->val->type;
+        }
+    }
+
+    if (ast->type == APPLY_AST) {
+        Type *left_t = dfsInsertAst(ast->left, globals, constraints, unknown_types);
+        Type *right_t = dfsInsertAst(ast->right, globals, constraints, unknown_types);
+        Type *ret = make_unknown_type(unknown_types->size());
+        (*unknown_types)[ret->id] = ret;
+        Type *unknown_func = make_func_type(right_t, ret);
+        Constraint *c = make_eq_constraiant(unknown_func, left_t);
+        constraints->push_back(c);
+        return ret;
+    }
+
+    if (ast->type == LAMBDA_AST) {
+        Type *left_t;
+        if (!ast->left->lambda->arg->type) {
+            left_t = make_unknown_type(unknown_types->size());
+            (*unknown_types)[left_t->id] = left_t;
+            ast->left->lambda->arg->type = left_t;
+        }
+        left_t = handle_lambda(ast->left, &globals);
+        Type *right_t = dfsInsertAst(ast->right, globals, constraints, unknown_types);
+        return make_func_type(left_t, right_t);
+    }
+    printf("ast type error");
+    exit(-1);
+}
+
+Type *solve(Type *t, vector<Constraint *>constraints, map<int, Type*>unknown_types) {
+    for (int i = 0; i < constraints.size(); i++) {
+        Constraint *c = constraints[i];
+        Type *left = c->left;
+        Type *right = c->right;
+        if (left->type == UNKNOWN) {
+            typecpy(left, right);
+        }
+        else if(right->type == UNKNOWN) {
+            typecpy(right, left);
+        }
+        else if (left->type == VARIABLE) {
+            if (right->type == VARIABLE and !typecmp(right, left)) {
+                printf("[Type Error!]%s != %s\n",
+                        type2str(left), type2str(right));
+                exit(-1);
+            }
+            typecpy(right, left);
+        }
+        else if (right->type == VARIABLE) {
+            if (left->type == VARIABLE and !typecmp(right, left)) {
+                printf("[Type Error!]%s != %s\n",
+                        type2str(left), type2str(right));
+                exit(-1);
+            }
+        }
+    }
+    for (int i = 0; i < constraints.size(); i++) {
+        // 大変頭が悪い方法
+        Constraint *c = constraints[i];
+        char *left_s = type2str(c->left);
+        char *right_s = type2str(c->right);
+        Type *left_new_t = make_type_from_str(left_s, 0);
+        Type *right_new_t = make_type_from_str(right_s, 0);
+        match_type(left_new_t, right_new_t, unknown_types);
+    }
+}
+void match_type(Type *left, Type *right, map<int, Type*>unknown_types) {
+    switch(left->type) {
+        case FUNCTION:
+            if (right->type == UNKNOWN) {
+                Type *t = unknown_types[right->id];
+                typecpy(t, left);
+            }
+            match_type(left->from, right->from, unknown_types);
+            match_type(left->to, right->to, unknown_types);
+            break;
+        case VARIABLE:
+            if (right->type == VARIABLE and !typecmp(right, left)) {
+                printf("[Type Error!]%s != %s\n",
+                        type2str(left), type2str(right));
+                exit(-1);
+            }
+            if (right->type == UNKNOWN) {
+                Type *t = unknown_types[right->id];
+                typecpy(t, left);
+            }
+            break;
+        case TYPE:
+            if (right->type == TYPE and !typecmp(right, left)) {
+                printf("[Type Error!]%s != %s\n",
+                        type2str(left), type2str(right));
+                exit(-1);
+            }
+            if (right->type == UNKNOWN) {
+                Type *t = unknown_types[right->id];
+                typecpy(t, left);
+            }
+            break;
+        case UNKNOWN:
+            if (right->type == UNKNOWN) {
+                int left_id = left->id;
+                int right_id = right->id;
+                Type *left_t = unknown_types[left_id];
+                Type *right_t = unknown_types[right_id];
+                if (left_id < right_id) {
+                    typecpy(right_t, left_t);
+                }
+                else if (left_id < right_id) {
+                    typecpy(left_t, right_t);
+                }
+            }
+            else {
+                Type *left_t = unknown_types[left->id];
+                typecpy(left_t, right);
+            }
+    }
+}
+
+Type *infer(char *s) {
+    Ast *ast = str2ast(s);
+
+    vector<Variable *> globals;
+    vector<Constraint *>constraints;
+    map<int, Type *> unknown_types;
+    Type *type = dfsInsertAst(ast, globals, &constraints, &unknown_types);
+    solve(type, constraints, unknown_types);
+    print_type(type);
+}
+
 Type *make_type() {
     Type *t =  (Type*)malloc(sizeof(Type));
     memset(t, 0, sizeof(Type));
@@ -89,6 +252,23 @@ Type * _make_no_func_type_from_str(char *s) {
         Type *t = make_type();
         t->type = VARIABLE;
         t->type_name = name;
+        return t;
+    }
+    static const char que_regex[] = "^ *\\?([0-9]*) *$";
+    regex_t quebuf;
+    if(regcomp(&quebuf, que_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
+    {
+        printf("regex error..!\n");
+        exit(-1);
+    }
+
+    regmatch_t quepm[2];
+    if(regexec(&quebuf, s, 2, quepm, 0) == 0)
+    {
+        char *queid_s = create_substr(s, quepm[1].rm_so, quepm[1].rm_eo);
+        Type *t = make_type();
+        t->type = UNKNOWN;
+        t->id = atoi(queid_s);
         return t;
     }
     static const char var_pr_regex[]
@@ -167,24 +347,26 @@ Type * make_type_from_str(char *s, int type_wrap_if_func) {
 Ast *str2ast(char *s) {
     // lambda x:var matching
     static const char lambda_regex[]
-        = "^ *lambda +([a-zA-Z][a-zA-Z0-9]*):([^.]+)\\.(.+)$";
+        = "^ *lambda +([a-zA-Z][a-zA-Z0-9]*) *(: *([^.]+))? *\\. *(.+)$";
     regex_t lambdabuf;
     if(regcomp(&lambdabuf, lambda_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
     {
         printf("regex error..!\n");
         exit(-1);
     }
-    regmatch_t pm[4];
-    if( regexec( &lambdabuf, s, 4, pm, 0 ) == 0 )
+    regmatch_t pm[5];
+    if( regexec( &lambdabuf, s, 5, pm, 0 ) == 0 )
     {
         // var name
         char *name = create_substr(s, pm[1].rm_so, pm[1].rm_eo);
-        char *type_name = create_substr(s, pm[2].rm_so, pm[2].rm_eo);
-        char *exp = create_substr(s, pm[3].rm_so, pm[3].rm_eo);
+        Type *t = NULL;
+        if (pm[3].rm_so > 0) {
+            char *type_name = create_substr(s, pm[3].rm_so, pm[3].rm_eo);
+            t = make_type_from_str(type_name, 1);
+        }
+        char *exp = create_substr(s, pm[4].rm_so, pm[4].rm_eo);
         Ast *right = str2ast(exp);
         free(exp);
-
-        Type *t = make_type_from_str(type_name, 1);
 
         Ast *left = make_lambda_prim_ast(name, t);
         Ast *ret = make_lambda_ast(left, right);
@@ -246,9 +428,7 @@ Ast *str2ast(char *s) {
 }
 
 int verify(char* s) {
-    // printf("-----debug-----\n");
     int l = strlen(s);
-    // TODO: Semantic Parsing
     // TODO: Type Inference
 
     int split_point = find_first_split_point(s, '=');
@@ -257,7 +437,6 @@ int verify(char* s) {
 
     int split_point_2 = find_first_split_point(let_str, ':');
     char *type_str = create_substr(let_str, split_point_2 + 1, split_point);
-    char *func_name = create_substr(let_str, 0, split_point_2);
     free(let_str);
 
     Ast *ast = str2ast(lambda_str);
@@ -266,15 +445,9 @@ int verify(char* s) {
     vector<Variable*> globals;
 
     Type *type = dfsAst(ast, globals);
-    // print_type(type);
-
     Type *target = make_type_from_str(type_str, 0);
-    // print_type(target);
-
-    //Type *target = make_func_type(&INT_t, &INT_t);;
     int result = typecmp(type, target);
     // TODO: Free
-    // printf("-----debug-----\n");
 
     return result;
 }

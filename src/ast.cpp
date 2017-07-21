@@ -7,20 +7,6 @@
 
 using namespace std;
 
-Type * make_primitive(char * type_name) {
-    Type *type = (Type*)malloc(sizeof(Type));
-    type->type = VARIABLE;
-    type->type_name = type_name;
-    return type;
-}
-
-Type * make_func_type(Type *from, Type *to) {
-    Type *ret = (Type*)malloc(sizeof(Type));
-    ret->type = FUNCTION;
-    ret->from = from;
-    ret->to = to;
-    return ret;
-}
 
 void print_var(Variable *var) {
     printf("%s:", var->name);
@@ -87,6 +73,15 @@ Lambda *make_lambda(Variable *var) {
     return lambda;
 }
 
+Ast *make_lambda_prim_ast_unknown(char *var_name) {
+    Variable *var = make_variable_by_name(var_name);
+    Lambda *lambda = make_lambda(var);
+    Ast * ast = (Ast *)malloc(sizeof(Ast));
+    memset(ast, 0, sizeof(Ast));
+    ast->type = LAMBDA_PRIM_AST;
+    ast->lambda = lambda;
+    return ast;
+}
 Ast *make_lambda_prim_ast(char *var_name, Type *var_type) {
     Variable *var = make_variable(var_name, var_type);
     Lambda *lambda = make_lambda(var);

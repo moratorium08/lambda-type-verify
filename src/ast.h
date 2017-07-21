@@ -39,6 +39,7 @@ Variable *make_var();
 Ast *make_var_ast(Variable *v);
 Lambda *make_lambda(Variable *var);
 Ast *make_lambda_prim_ast(char *var_name, Type *var_type);
+Ast *make_lambda_prim_ast_unknown(char *var_name);
 Ast *make_apply_ast(Ast *left, Ast *right);
 Ast *make_lambda_ast(Ast *lambda, Ast *right);
 Type * handle_lambda(Ast *ast, vector<Variable*> *globals);

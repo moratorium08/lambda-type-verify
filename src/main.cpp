@@ -10,6 +10,8 @@ int main(void) {
             printf("Good Bye\n");
             break;
         }
+        infer(s);
+        break;
         int flag = verify(s);
         if (flag == 1) {
             printf("OK\n");
