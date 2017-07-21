@@ -1,5 +1,6 @@
 #include "ast.h"
 #include "type.h"
+#include <map>
 
 enum ConstraintType {
     EQUAL_C,

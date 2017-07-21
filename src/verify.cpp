@@ -216,7 +216,7 @@ Type *infer(char *s) {
     map<int, Type *> unknown_types;
     Type *type = dfsInsertAst(ast, globals, &constraints, &unknown_types);
     solve(type, constraints, unknown_types);
-    print_type(type);
+    return type;
 }
 
 Type *make_type() {
