@@ -99,6 +99,7 @@ Type *dfsInsertAst(Ast *ast, vector<Variable *> globals, vector<Constraint *> *c
         Type *ret = make_unknown_type(unknown_types->size());
         (*unknown_types)[ret->id] = ret;
         Type *unknown_func = make_func_type(right_t, ret);
+
         Constraint *c = make_eq_constraiant(unknown_func, left_t);
         constraints->push_back(c);
         return ret;
@@ -291,7 +292,6 @@ Type * _make_no_func_type_from_str(char *s) {
 }
 
 Type * make_type_from_str(char *s, int type_wrap_if_func) {
-    //static const char arrow[] = "^ *(.+?)->(.+)$";
     int l = strlen(s);
     int open_cnt = 0;
     int st = 0;
@@ -340,7 +340,6 @@ Type * make_type_from_str(char *s, int type_wrap_if_func) {
         ret->type = TYPE;
         ret->type_fn = tmp;
     }
-
     return ret;
 }
 
@@ -374,7 +373,7 @@ Ast *str2ast(char *s) {
     }
 
     // Apply Handling
-    static const char apply_regex[] = "^ *(.+)\\((.*)\\)$";
+    static const char apply_regex[] = "^ *(.+)\\((.*)\\) *$";
     regex_t applybuf;
     if(regcomp(&applybuf, apply_regex, REG_EXTENDED | REG_NEWLINE ) != 0 )
     {

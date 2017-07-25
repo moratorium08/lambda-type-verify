@@ -18,7 +18,7 @@ void help(char *cmd) {
 
 int main(int argc, char *argv[]) {
     int verify_or_infer = INFER_TYPES;
-    if (argc > 2) {
+    if (argc > 1) {
         char *sw = argv[1];
         if (strcmp(sw, "-i") == 0) {
             verify_or_infer = INFER_TYPES;
@@ -33,6 +33,7 @@ int main(int argc, char *argv[]) {
     }
     while (true) {
         char s[101];
+        printf("> ");
         fgets(s, 100, stdin);
         if (strcmp(s, "q\n") == 0) {
             printf("Good Bye\n");
